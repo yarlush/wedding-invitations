@@ -67,10 +67,9 @@ py samples/run_demo.py --stop
 | `samples/run_demo.py` | Запуск демо-сервера на копии `demo.db` |
 | `samples/seed_demo.py` | Пересоздание `demo.db` из `seed/wedding.db` |
 | `samples/fill_demo_answers.py` | Заполнение демо-ответов через API |
-| `samples/generate_demo_images.py` | Генерация демонстрационных изображений |
-| `samples/take_screenshots.py` | Снимки экранов админки и приглашения |
 
 Скрипты рассчитаны на локальную демонстрацию и не содержат реальных данных.
+Демонстрационные изображения уже лежат в `wwwroot/assets`.
 
 ## API
 

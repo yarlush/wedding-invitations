@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>События — Панель управления</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <h1 style="margin-bottom:8px;">События</h1>
+    <button class="btn" id="add-btn">Добавить событие</button>
+  </div>
+  <div class="panel" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>#</th><th>Название</th><th>Дата</th><th>Место</th><th>Описание</th><th>Гостей</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Добавить событие</h3>
+    <div class="row"><label>Название</label><input type="text" id="f-name"></div>
+    <div class="row"><label>Дата и время</label><input type="datetime-local" id="f-date"></div>
+    <div class="row"><label>Место</label><input type="text" id="f-location"></div>
+    <div class="row"><label>Описание</label><textarea id="f-description"></textarea></div>
+    <div class="row"><label>Порядок отображения</label><input type="number" id="f-order" value="0"></div>
+    <div id="err" class="err"></div>
+    <div class="actions">
+      <button class="btn secondary" onclick="closeModal('modal')">Отмена</button>
+      <button class="btn" id="save-btn">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let events = [];
+let editingId = null;
+
+(async function () {
+  if (!await requireAuth()) return;
+  renderNav('События');
+  events = await api.get('/api/admin/events');
+  render();
+})();
+
+function render() {
+  document.getElementById('rows').innerHTML = events.map(ev => `
+    <tr>
+      <td>${ev.order}</td>
+      <td><b>${esc(ev.name)}</b></td>
+      <td>${fmtDate(ev.date)}</td>
+      <td>${esc(ev.location || '—')}</td>
+      <td>${esc(ev.description || '—')}</td>
+      <td>${ev.guests}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn secondary small" onclick="openEdit(${ev.id})">Изменить</button>
+        <button class="btn danger small" onclick="remove(${ev.id})">Удалить</button>
+      </td>
+    </tr>`).join('');
+}
+
+function openEdit(id) {
+  const ev = events.find(x => x.id === id);
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Изменить событие';
+  fillForm(ev);
+  openModal('modal');
+}
+
+document.getElementById('add-btn').addEventListener('click', () => {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Добавить событие';
+  fillForm(null);
+  openModal('modal');
+});
+
+function fillForm(ev) {
+  document.getElementById('f-name').value = ev ? ev.name : '';
+  document.getElementById('f-date').value = ev ? toLocal(ev.date) : '';
+  document.getElementById('f-location').value = ev ? ev.location : '';
+  document.getElementById('f-description').value = ev ? ev.description : '';
+  document.getElementById('f-order').value = ev ? ev.order : 0;
+}
+
+function toLocal(d) {
+  const dt = new Date(d);
+  const pad = n => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const err = document.getElementById('err');
+  err.textContent = '';
+  const body = {
+    name: document.getElementById('f-name').value.trim(),
+    date: document.getElementById('f-date').value || null,
+    location: document.getElementById('f-location').value.trim(),
+    description: document.getElementById('f-description').value.trim(),
+    order: Number(document.getElementById('f-order').value) || 0,
+  };
+  if (!body.name) { err.textContent = 'Укажите название'; return; }
+
+  try {
+    if (editingId == null) {
+      const created = await api.post('/api/admin/events', body);
+      events.push({ ...body, id: created.id, guests: 0 });
+    } else {
+      await api.put(`/api/admin/events/${editingId}`, body);
+      const ev = events.find(x => x.id === editingId);
+      Object.assign(ev, body);
+    }
+    closeModal('modal');
+    events = await api.get('/api/admin/events');
+    render();
+  } catch (e) { err.textContent = e.message; }
+});
+
+async function remove(id) {
+  const ev = events.find(x => x.id === id);
+  if (!confirm(`Удалить событие «${ev.name}»? Связанные вопросы и назначения будут удалены.`)) return;
+  await api.del(`/api/admin/events/${id}`);
+  events = await api.get('/api/admin/events');
+  render();
+}
+</script>
+</body>
+</html>

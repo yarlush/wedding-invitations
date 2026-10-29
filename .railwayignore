@@ -1,0 +1,17 @@
+bin/
+obj/
+*.db
+*.db-shm
+*.db-wal
+*.user
+.git/
+.gitignore
+.vs/
+.idea/
+.vscode/
+docs/
+samples/
+*.xlsx
+Wedding.slnx
+README.md
+railway.json

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вопросы — Панель управления</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <h1 style="margin-bottom:8px;">Вопросы</h1>
+    <button class="btn" id="add-btn">Добавить вопрос</button>
+  </div>
+  <p class="muted">Общий вопрос задаётся всем гостям. Вопрос, привязанный к событию, видят только приглашённые на него. Вопрос с меткой «+1» дублируется для спутника.</p>
+  <div class="panel" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>#</th><th>Текст</th><th>Тип</th><th>Привязка</th><th>Варианты</th><th>+1</th><th>Обязат.</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Добавить вопрос</h3>
+    <div class="row"><label>Текст вопроса</label><input type="text" id="f-text"></div>
+    <div class="row">
+      <label>Тип</label>
+      <select id="f-type">
+        <option value="Text">Текст</option>
+        <option value="YesNo">Да / Нет</option>
+        <option value="SingleChoice">Выбор одного</option>
+        <option value="MultiChoice">Выбор нескольких</option>
+      </select>
+    </div>
+    <div class="row" id="options-row">
+      <label>Варианты (по одному на строку)</label>
+      <textarea id="f-options"></textarea>
+      <div class="hint">Если убрать или переименовать вариант — ответы с ним будут удалены.</div>
+    </div>
+    <div class="row">
+      <label>Привязка к событию</label>
+      <select id="f-event"><option value="">Общий вопрос</option></select>
+    </div>
+    <div class="row">
+      <div class="check-line"><label style="margin:0;"><input type="checkbox" id="f-percom"> Дублировать для спутника (+1)</label></div>
+      <div class="check-line"><label style="margin:0;"><input type="checkbox" id="f-required"> Обязательный вопрос</label></div>
+    </div>
+    <div class="row"><label>Порядок</label><input type="number" id="f-order" value="0"></div>
+    <div id="err" class="err"></div>
+    <div class="actions">
+      <button class="btn secondary" onclick="closeModal('modal')">Отмена</button>
+      <button class="btn" id="save-btn">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let questions = [];
+let events = [];
+let editingId = null;
+let editingAnswerCount = 0;
+
+(async function () {
+  if (!await requireAuth()) return;
+  renderNav('Вопросы');
+  [questions, events] = await Promise.all([api.get('/api/admin/questions'), api.get('/api/admin/events')]);
+  document.getElementById('f-event').innerHTML =
+    '<option value="">Общий вопрос</option>' +
+    events.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
+  render();
+})();
+
+function render() {
+  document.getElementById('rows').innerHTML = questions.map(q => `
+    <tr>
+      <td>${q.order}</td>
+      <td><b>${esc(q.text)}</b>${q.isActive ? '' : ' <span class="muted">(не активен)</span>'}</td>
+      <td>${esc(q.typeLabel)}</td>
+      <td>${q.eventId ? esc(q.eventName) : '<span class="muted">Общий</span>'}</td>
+      <td>${q.options.map(esc).join(', ')}</td>
+      <td>${q.isPerCompanion ? 'да' : ''}</td>
+      <td>${q.isRequired ? 'да' : ''}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn secondary small" onclick="openEdit(${q.id})">Изменить</button>
+        <button class="btn danger small" onclick="remove(${q.id})">Удалить</button>
+      </td>
+    </tr>`).join('');
+}
+
+document.getElementById('f-type').addEventListener('change', syncOptionsRow);
+
+function syncOptionsRow() {
+  const t = document.getElementById('f-type').value;
+  document.getElementById('options-row').style.display = (t === 'SingleChoice' || t === 'MultiChoice') ? '' : 'none';
+}
+
+function openEdit(id) {
+  const q = questions.find(x => x.id === id);
+  editingId = id;
+  editingAnswerCount = 0;
+  api.get(`/api/admin/questions/${id}/impact`)
+    .then(r => { editingAnswerCount = r.answers; })
+    .catch(() => {});
+  document.getElementById('modal-title').textContent = 'Изменить вопрос';
+  document.getElementById('f-text').value = q.text;
+  document.getElementById('f-type').value = q.type;
+  document.getElementById('f-options').value = q.options.join('\n');
+  document.getElementById('f-event').value = q.eventId || '';
+  document.getElementById('f-percom').checked = q.isPerCompanion;
+  document.getElementById('f-required').checked = q.isRequired;
+  document.getElementById('f-order').value = q.order;
+  syncOptionsRow();
+  openModal('modal');
+}
+
+document.getElementById('add-btn').addEventListener('click', () => {
+  editingId = null;
+  editingAnswerCount = 0;
+  document.getElementById('modal-title').textContent = 'Добавить вопрос';
+  document.getElementById('f-text').value = '';
+  document.getElementById('f-type').value = 'Text';
+  document.getElementById('f-options').value = '';
+  document.getElementById('f-event').value = '';
+  document.getElementById('f-percom').checked = false;
+  document.getElementById('f-required').checked = false;
+  document.getElementById('f-order').value = questions.length;
+  syncOptionsRow();
+  openModal('modal');
+});
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const err = document.getElementById('err');
+  err.textContent = '';
+  const type = document.getElementById('f-type').value;
+  const options = document.getElementById('f-options').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+
+  const body = {
+    text: document.getElementById('f-text').value.trim(),
+    type,
+    options,
+    eventId: document.getElementById('f-event').value ? Number(document.getElementById('f-event').value) : null,
+    isPerCompanion: document.getElementById('f-percom').checked,
+    isRequired: document.getElementById('f-required').checked,
+    order: Number(document.getElementById('f-order').value) || 0,
+  };
+  if (!body.text) { err.textContent = 'Укажите текст вопроса'; return; }
+  if ((type === 'SingleChoice' || type === 'MultiChoice') && options.length < 2) {
+    err.textContent = 'Для этого типа нужно минимум 2 варианта'; return;
+  }
+
+  try {
+    if (editingId == null) {
+      const created = await api.post('/api/admin/questions', body);
+      questions.push({ ...body, id: created.id, typeLabel: '', eventName: events.find(e => e.id === body.eventId)?.name });
+    } else {
+      const original = questions.find(x => x.id === editingId);
+      if (original && editingAnswerCount > 0) {
+        const typeChanged = original.type !== body.type;
+        const optionsChanged = (type === 'SingleChoice' || type === 'MultiChoice')
+          && original.options.join('|') !== options.join('|');
+        if (typeChanged || optionsChanged) {
+          const msg = typeChanged
+            ? `Вы меняете тип вопроса. Все ответы на него (${editingAnswerCount}) будут удалены. Продолжить?`
+            : `Варианты ответа изменились. Ответы с убранными или переименованными вариантами будут удалены. Продолжить?`;
+          if (!confirm(msg)) return;
+        }
+      }
+      const res = await api.put(`/api/admin/questions/${editingId}`, body);
+      if (res && res.removedAnswers > 0) {
+        alert(`Сохранено. Удалено неактуальных ответов: ${res.removedAnswers}.`);
+      }
+    }
+    closeModal('modal');
+    questions = await api.get('/api/admin/questions');
+    render();
+  } catch (e) { err.textContent = e.message; }
+});
+
+async function remove(id) {
+  if (!confirm('Удалить вопрос? Ответы на него будут удалены.')) return;
+  await api.del(`/api/admin/questions/${id}`);
+  questions = await api.get('/api/admin/questions');
+  render();
+}
+</script>
+</body>
+</html>

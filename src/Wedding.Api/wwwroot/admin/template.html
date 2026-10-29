@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Шаблоны — Панель управления</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main>
+  <h1>Шаблоны страниц</h1>
+  <div class="panel">
+    <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px;">
+      <button class="btn secondary" id="tab-inv" onclick="showTab('inv')">Приглашение</button>
+      <button class="btn secondary" id="tab-conf" onclick="showTab('conf')">Подтверждение</button>
+    </div>
+
+    <div id="help-inv">
+      <p class="muted">Шаблон <b>приглашения</b>. Сервер заполняет данные в элементы по <code>id</code>:</p>
+      <ul class="muted" style="line-height:1.8;">
+        <li><code>#guest-name</code> — имя гостя</li>
+        <li><code>#events</code> — карточки событий (дата, место, +1) с выбором «придёте ли»</li>
+        <li><code>#companion-section</code> — блок имени спутника (если разрешён +1)</li>
+        <li><code>#questions</code> — форма вопросов</li>
+        <li><code>#submit-btn</code> и <code>#message</code> — кнопка отправки и сообщение об ошибке (JS добавляется автоматически)</li>
+      </ul>
+    </div>
+    <div id="help-conf" style="display:none;">
+      <p class="muted">Шаблон <b>подтверждения</b> — страница, которую видит гость после отправки ответа:</p>
+      <ul class="muted" style="line-height:1.8;">
+        <li><code>#guest-name</code> — имя гостя</li>
+        <li><code>#message</code> — текст «Ваш ответ сохранён» (или «вы ещё не ответили»)</li>
+        <li><code>#summary</code> — сводка ответов (события, спутник, вопросы); если блока нет — сводка не показывается</li>
+        <li><code>#back-link</code> — ссылка «изменить ответ» / «открыть приглашение»</li>
+      </ul>
+      <p class="muted">Хотите простое «спасибо» без деталей? Уберите из шаблона блок <code>#summary</code>.</p>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+      <button class="btn" onclick="document.getElementById('file').click()">Загрузить файл</button>
+      <button class="btn secondary" onclick="save()">Сохранить</button>
+      <button class="btn secondary" onclick="preview()">Предпросмотр</button>
+    </div>
+    <input type="file" id="file" accept=".html,.htm,text/html" style="display:none;">
+    <div id="err" class="err"></div>
+    <textarea class="code" id="html" style="margin-top:14px;" placeholder="&lt;!DOCTYPE html&gt; ..."></textarea>
+  </div>
+
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <h2 style="margin:0;">Изображения для шаблонов</h2>
+      <button class="btn" onclick="document.getElementById('img-file').click()">Загрузить изображение</button>
+    </div>
+    <p class="muted">Загрузите фото (например, фото пары) и вставьте его URL в шаблон через кнопку «Вставить». Ссылки вида <code>/uploads/1</code> работают в обоих шаблонах.</p>
+    <input type="file" id="img-file" accept="image/*" style="display:none;">
+    <div id="img-list"></div>
+    <div id="img-err" class="err"></div>
+  </div>
+  <iframe id="preview-frame" style="display:none;width:100%;height:80vh;border:1px solid var(--border);border-radius:12px;background:#fff;"></iframe>
+</main>
+<script src="app.js"></script>
+<script>
+let tab = 'inv';
+
+(async function () {
+  if (!await requireAuth()) return;
+  renderNav('Шаблон');
+  await loadTemplate();
+  await loadImages();
+})();
+
+async function loadImages() {
+  const imgs = await api.get('/api/admin/uploads');
+  const box = document.getElementById('img-list');
+  if (!imgs.length) { box.innerHTML = '<p class="muted">Пока нет изображений.</p>'; return; }
+  box.innerHTML = imgs.map(im => `
+    <div style="display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+      <img src="${im.url}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid var(--border);">
+      <div style="flex:1;min-width:160px;">
+        <div style="font-weight:500;">${esc(im.name)}</div>
+        <div class="link-cell">${im.url}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn secondary small" onclick="copyUrl('${im.url}')">Копировать URL</button>
+        <button class="btn secondary small" onclick="insertImg('${im.url}')">Вставить в шаблон</button>
+        <button class="btn danger small" onclick="removeImg(${im.id})">Удалить</button>
+      </div>
+    </div>`).join('');
+}
+
+async function copyUrl(url) {
+  await navigator.clipboard.writeText(location.origin + url);
+  alert('URL скопирован: ' + url);
+}
+
+function insertImg(url) {
+  const ta = document.getElementById('html');
+  const img = '<img src="' + url + '" alt="Фото" style="max-width:100%;border-radius:16px;">';
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? ta.value.length;
+  ta.value = ta.value.slice(0, start) + img + ta.value.slice(end);
+  ta.focus();
+}
+
+async function removeImg(id) {
+  if (!confirm('Удалить изображение? Оно перестанет отображаться в шаблонах.')) return;
+  await api.del(`/api/admin/uploads/${id}`);
+  await loadImages();
+}
+
+document.getElementById('img-file').addEventListener('change', async function () {
+  const f = this.files[0];
+  this.value = '';
+  if (!f) return;
+  const err = document.getElementById('img-err');
+  err.textContent = 'Загружаю...';
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = String(reader.result).split(',')[1];
+    try {
+      await api.post('/api/admin/uploads', { name: f.name, dataBase64: base64 });
+      err.textContent = '';
+      await loadImages();
+    } catch (e) {
+      err.textContent = e.message;
+    }
+  };
+  reader.readAsDataURL(f);
+});
+
+async function loadTemplate() {
+  const res = await api.get(tab === 'inv' ? '/api/admin/template' : '/api/admin/template/confirmation');
+  document.getElementById('html').value = res.html;
+}
+
+function showTab(t) {
+  tab = t;
+  document.getElementById('tab-inv').classList.toggle('secondary', t !== 'inv');
+  document.getElementById('tab-conf').classList.toggle('secondary', t !== 'conf');
+  document.getElementById('help-inv').style.display = t === 'inv' ? '' : 'none';
+  document.getElementById('help-conf').style.display = t === 'conf' ? '' : 'none';
+  loadTemplate();
+}
+
+document.getElementById('file').addEventListener('change', function () {
+  const f = this.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => { document.getElementById('html').value = String(reader.result); };
+  reader.readAsText(f);
+});
+
+async function save() {
+  const err = document.getElementById('err');
+  err.textContent = '';
+  try {
+    const path = tab === 'inv' ? '/api/admin/template' : '/api/admin/template/confirmation';
+    await api.put(path, { html: document.getElementById('html').value });
+    err.textContent = 'Сохранено';
+    err.style.color = 'var(--ok)';
+    setTimeout(() => { err.textContent = ''; err.style.color = ''; }, 2500);
+  } catch (e) {
+    err.textContent = e.message;
+  }
+}
+
+async function preview() {
+  const err = document.getElementById('err');
+  err.textContent = '';
+  try {
+    await save();
+    const path = tab === 'inv' ? '/api/admin/template/preview' : '/api/admin/template/confirmation/preview';
+    const res = await api.post(path, {});
+    const frame = document.getElementById('preview-frame');
+    frame.style.display = 'block';
+    frame.srcdoc = res.html;
+    frame.scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {
+    err.textContent = e.message;
+  }
+}
+</script>
+</body>
+</html>

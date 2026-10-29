@@ -1,0 +1,19 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+
+# Local databases. The demo database is committed intentionally.
+*.db
+*.db-shm
+*.db-wal
+!src/Wedding.Api/demo.db
+!src/Wedding.Api/seed/wedding.db
+
+# Private source data
+*.xlsx
+docs/

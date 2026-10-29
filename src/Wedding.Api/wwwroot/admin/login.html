@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вход — Панель управления</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div style="max-width:360px;margin:80px auto;padding:0 16px;">
+  <div class="panel" style="padding:28px;">
+    <h2 style="margin-top:0;">Вход в панель</h2>
+    <div class="row">
+      <label>Логин</label>
+      <input type="text" id="username" autocomplete="username">
+    </div>
+    <div class="row">
+      <label>Пароль</label>
+      <input type="password" id="password" autocomplete="current-password">
+    </div>
+    <div id="err" class="err"></div>
+    <button class="btn" id="login-btn" style="width:100%;margin-top:8px;">Войти</button>
+  </div>
+</div>
+<script src="app.js"></script>
+<script>
+(async function () {
+  try {
+    const me = await api.get('/api/admin/me');
+    if (me.authenticated) location.href = 'index.html';
+  } catch {}
+})();
+
+document.getElementById('login-btn').addEventListener('click', doLogin);
+document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+async function doLogin() {
+  const err = document.getElementById('err');
+  err.textContent = '';
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  try {
+    await api.post('/api/admin/login', {
+      username: document.getElementById('username').value.trim(),
+      password: document.getElementById('password').value,
+    });
+    location.href = 'index.html';
+  } catch (e) {
+    err.textContent = e.message === 'Ошибка запроса' ? 'Неверный логин или пароль' : e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

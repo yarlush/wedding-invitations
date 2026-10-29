@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Дашборд — Панель управления</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main>
+  <h1>Дашборд</h1>
+  <div class="cards" id="cards"></div>
+  <div class="panel">
+    <h2>События</h2>
+    <div id="events-panel"></div>
+  </div>
+  <div class="panel">
+    <h2>Обслуживание</h2>
+    <p class="hint" style="margin-top:0;">Служебные действия для тестирования. Подробнее — на странице <a href="answers.html">Ответы</a>.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a class="btn secondary" href="answers.html">Очистка ответов</a>
+      <button class="btn secondary" onclick="resetTokens()">Сбросить все ссылки гостей</button>
+    </div>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+(async function () {
+  if (!await requireAuth()) return;
+  renderNav('Дашборд');
+
+  const [guests, answers] = await Promise.all([
+    api.get('/api/admin/guests'),
+    api.get('/api/admin/answers'),
+  ]);
+
+  const answered = guests.filter(g => g.lastSubmissionAt).length;
+
+  document.getElementById('cards').innerHTML = `
+    <div class="card"><div class="num">${guests.length}</div><div class="lbl">Всего гостей</div></div>
+    <div class="card"><div class="num">${answered}</div><div class="lbl">Ответили</div></div>
+    <div class="card"><div class="num">${guests.length - answered}</div><div class="lbl">Не ответили</div></div>
+  `;
+
+  let html = '<table><tr><th>Событие</th><th>Приглашено</th><th>Придут</th><th>Не придут</th><th>Не ответили</th><th>Спутники</th><th>Итого людей</th></tr>';
+  for (const ev of answers.events) {
+    const invited = ev.guests.length;
+    const yes = ev.guests.filter(g => g.attendance === 'Yes').length;
+    const no = ev.guests.filter(g => g.attendance === 'No').length;
+    const notAns = invited - yes - no;
+    const comp = ev.guests.filter(g => g.attendance === 'Yes' && g.companionName).length;
+    html += `<tr>
+      <td>${esc(ev.name)}</td>
+      <td>${invited}</td>
+      <td>${yes}</td>
+      <td>${no}</td>
+      <td>${notAns}</td>
+      <td>${comp}</td>
+      <td>${yes + comp}</td>
+    </tr>`;
+  }
+  html += '</table>';
+  document.getElementById('events-panel').innerHTML = html;
+})();
+
+async function resetTokens() {
+  if (!confirm('Выдать всем гостям новые ссылки? Все отправленные ранее ссылки перестанут работать. Не забудьте сообщить гостям новые ссылки.')) return;
+  const res = await api.post('/api/admin/tools/reset-tokens', {});
+  alert(`Обновлено ссылок: ${res.updated}. Скопируйте новые ссылки на странице «Гости».`);
+}
+</script>
+</body>
+</html>

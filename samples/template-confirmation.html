@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Спасибо!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbf7ef;
+    --paper: #fffdf8;
+    --ink: #4a4034;
+    --muted: #6f6350;
+    --gold: #b98a3d;
+    --gold-dark: #8f6a2a;
+    --line: #eadcc2;
+    --rose: #b3574d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 10px 26px -16px var(--gold); }
+    50% { box-shadow: 0 10px 40px -10px var(--gold); }
+  }
+  .emblem { animation: fadeUp .9s ease both, glow 4s ease-in-out 1.4s infinite; }
+  .title { animation: fadeUp .9s .12s ease both; }
+  .guest-name { animation: fadeUp .9s .2s ease both; }
+  #message { animation: fadeUp .9s .28s ease both; }
+  #summary { animation: fadeUp .8s .35s ease both; }
+  .btn { animation: fadeUp .8s .45s ease both; }
+  .footnote { animation: fadeUp .8s .55s ease both; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  body {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    color: var(--ink);
+    background:
+      radial-gradient(1000px 520px at 50% -120px, #f3e7cf99, transparent 62%),
+      radial-gradient(900px 500px at 100% 100%, #e9cfa055, transparent 60%),
+      linear-gradient(180deg, #fdf7ec 0%, #f8eeda 60%, #f2e3c9 100%);
+    min-height: 100vh;
+  }
+  .page { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 72px 24px; text-align: center; }
+  .emblem {
+    width: 92px; height: 92px; margin: 0 auto 26px;
+    border: 1px solid var(--gold); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 42px; color: var(--gold-dark);
+    background: radial-gradient(circle at 30% 30%, #fffdf8, #f5ead4);
+    box-shadow: 0 10px 26px -16px var(--gold);
+  }
+  .title {
+    font-family: 'Cormorant Garamond', serif; font-size: 52px; font-weight: 600;
+    margin: 0; color: var(--ink);
+  }
+  .guest-name {
+    font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 600;
+    color: var(--gold-dark); margin: 12px 0 20px;
+  }
+  #message { font-size: 16px; line-height: 1.6; color: #5b5040; max-width: 480px; margin: 0 auto; }
+
+  #summary {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 18px;
+    padding: 20px 26px; margin: 30px auto; max-width: 560px; text-align: left;
+    box-shadow: 0 12px 30px -22px rgba(74,64,52,.45);
+  }
+  #summary h3 {
+    font-family: 'Cormorant Garamond', serif; font-size: 21px; font-weight: 600;
+    color: var(--gold-dark); margin: 0 0 6px;
+  }
+  #summary .row {
+    display: flex; justify-content: space-between; gap: 16px;
+    padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 14px; line-height: 1.5;
+  }
+  #summary .row:last-child { border-bottom: none; }
+  #summary .row .val { font-weight: 500; text-align: right; color: var(--ink); }
+
+  .btn {
+    display: inline-block; margin-top: 22px; padding: 14px 44px; font-size: 15px;
+    font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: 1px;
+    color: #fff; text-decoration: none;
+    background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+    border-radius: 999px; box-shadow: 0 12px 26px -14px var(--gold);
+    transition: transform .12s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.secondary { background: var(--paper); color: var(--gold-dark); border: 1px solid var(--gold); box-shadow: none; }
+  .back { display: inline-block; margin-top: 10px; }
+  .banner {
+    display: block; width: 280px; height: 280px; aspect-ratio: 1 / 1; object-fit: cover;
+    margin: 34px auto 0; border-radius: 50%; opacity: .96; border: 1px solid var(--line);
+    box-shadow: 0 20px 40px -28px rgba(74,64,52,.5);
+    pointer-events: none; -webkit-user-drag: none; user-select: none;
+  }
+
+  .footnote { color: var(--muted); font-size: 13.5px; margin-top: 30px; }
+
+                  /* ================= side borders: fallen-leaves + falling leaves ================= */
+  .side-leaves {
+    position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
+  }
+  .side-leaf {
+    position: absolute; top: -60vh; bottom: -60vh;
+    width: clamp(0px, calc(50vw - 380px), 560px);
+    background: url("/assets/leaves.jpg") center / cover no-repeat;
+    opacity: .88;
+    transform: translateY(var(--py, 0px));
+    will-change: transform;
+  }
+  .side-leaf.left {
+    left: 0;
+    -webkit-mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,.72) 34%, rgba(0,0,0,0) 100%);
+    mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,.72) 34%, rgba(0,0,0,0) 100%);
+  }
+  .side-leaf.right {
+    right: 0;
+    transform: scaleX(-1) translateY(var(--py, 0px));
+    -webkit-mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,.72) 34%, rgba(0,0,0,0) 100%);
+    mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,.72) 34%, rgba(0,0,0,0) 100%);
+  }
+  .falling { position: absolute; inset: 0; overflow: hidden; }
+  .falling-fg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+  .falling .f, .falling-fg .f {
+    position: absolute; top: -18vh; left: var(--x, 6vw);
+    width: var(--s, 46px); height: var(--s, 46px);
+    opacity: var(--o, .85);
+    animation: fall var(--dur, 16s) linear var(--d, 0s) infinite;
+    will-change: transform;
+  }
+  .falling .f i, .falling-fg .f i {
+    display: block; width: 100%; height: 100%;
+    background: var(--img) center / contain no-repeat;
+    filter: blur(var(--blur, 0px)) drop-shadow(0 3px 4px rgba(70,40,10,.5)) drop-shadow(0 0 7px rgba(255,246,220,.7));
+    animation: sway var(--sw, 4s) ease-in-out var(--d, 0s) infinite alternate;
+    will-change: transform;
+  }
+  @keyframes fall {
+    0%   { transform: translate3d(0, 0, 0) rotate(0deg); }
+    12%  { transform: translate3d(20px, 13vh, 0) rotate(46deg); }
+    25%  { transform: translate3d(-16px, 27vh, 0) rotate(100deg); }
+    38%  { transform: translate3d(24px, 42vh, 0) rotate(154deg); }
+    50%  { transform: translate3d(-20px, 57vh, 0) rotate(208deg); }
+    62%  { transform: translate3d(18px, 72vh, 0) rotate(262deg); }
+    75%  { transform: translate3d(-14px, 87vh, 0) rotate(308deg); }
+    87%  { transform: translate3d(11px, 100vh, 0) rotate(340deg); }
+    100% { transform: translate3d(0, 116vh, 0) rotate(360deg); }
+  }
+  @keyframes sway {
+    from { transform: translateX(-9px) rotate(-10deg); }
+    to   { transform: translateX(9px) rotate(10deg); }
+  }
+  /* ---------- mobile / tablet: lighter version of the decor ---------- */
+  @media (max-width: 1099px) {
+    /* narrower translucent leafy edges with a long, soft fade toward the text */
+    .side-leaf.left, .side-leaf.right {
+      width: clamp(40px, 17vw, 240px);
+      opacity: .5;
+      -webkit-mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,.55) 26%, rgba(0,0,0,.2) 58%, rgba(0,0,0,0) 100%);
+      mask-image: linear-gradient(to right, #000 0%, rgba(0,0,0,.55) 26%, rgba(0,0,0,.2) 58%, rgba(0,0,0,0) 100%);
+    }
+    /* keep all leaves (symmetric), just smaller and fainter */
+    .falling .f {
+      width: calc(var(--s, 46px) * .75);
+      height: calc(var(--s, 46px) * .75);
+      opacity: calc(var(--o, .85) * .6);
+    }
+    .falling .f i { filter: drop-shadow(0 2px 3px rgba(70,40,10,.35)); }
+    /* large blurred foreground leaves would sit over the text - keep them off */
+    .falling-fg { display: none; }
+  }
+  @media (max-width: 520px) {
+    .side-leaf.left, .side-leaf.right { width: clamp(30px, 14vw, 130px); opacity: .42; }
+    .falling .f {
+      width: calc(var(--s, 46px) * .6);
+      height: calc(var(--s, 46px) * .6);
+      opacity: calc(var(--o, .85) * .5);
+    }
+  }
+    @media (prefers-reduced-motion: reduce) {
+    .side-leaf { transform: none; }
+    .side-leaf.right { transform: scaleX(-1); }
+    .falling .f, .falling .f i, .falling-fg .f, .falling-fg .f i { animation: none; display: none; }
+  }
+
+@media (max-width: 520px) {
+    .page { padding: 48px 18px 56px; }
+    .title { font-size: 42px; }
+    .guest-name { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+              <div class="side-leaves" aria-hidden="true">
+    <div class="side-leaf left"></div>
+    <div class="side-leaf right"></div>
+    <div class="falling">
+      <div class="f" style="--x:3vw;--s:54px;--o:.95;--dur:15s;--d:0s;--sw:5s"><i style="--img:url('/assets/leaf1.png');--blur:0"></i></div>
+      <div class="f" style="--x:8vw;--s:44px;--o:.9;--dur:19s;--d:2s;--sw:6s"><i style="--img:url('/assets/leaf3.png');--blur:0"></i></div>
+      <div class="f" style="--x:13vw;--s:36px;--o:.9;--dur:17s;--d:5s;--sw:4.5s"><i style="--img:url('/assets/leaf5.png');--blur:0"></i></div>
+      <div class="f" style="--x:5vw;--s:40px;--o:.9;--dur:22s;--d:8s;--sw:7s"><i style="--img:url('/assets/leaf7.png');--blur:0"></i></div>
+      <div class="f" style="--x:17vw;--s:34px;--o:.85;--dur:20s;--d:3s;--sw:5s"><i style="--img:url('/assets/leaf4.png');--blur:0"></i></div>
+      <div class="f" style="--x:20vw;--s:30px;--o:.8;--dur:25s;--d:11s;--sw:6s"><i style="--img:url('/assets/leaf6.png');--blur:0"></i></div>
+      <div class="f" style="--x:87vw;--s:50px;--o:.95;--dur:16s;--d:1s;--sw:5.5s"><i style="--img:url('/assets/leaf2.png');--blur:0"></i></div>
+      <div class="f" style="--x:93vw;--s:38px;--o:.9;--dur:20s;--d:4s;--sw:6s"><i style="--img:url('/assets/leaf4.png');--blur:0"></i></div>
+      <div class="f" style="--x:80vw;--s:34px;--o:.9;--dur:18s;--d:7s;--sw:4s"><i style="--img:url('/assets/leaf6.png');--blur:0"></i></div>
+      <div class="f" style="--x:96vw;--s:44px;--o:.9;--dur:23s;--d:10s;--sw:6.5s"><i style="--img:url('/assets/leaf8.png');--blur:0"></i></div>
+      <div class="f" style="--x:15vw;--s:30px;--o:.85;--dur:24s;--d:12s;--sw:5s"><i style="--img:url('/assets/leaf3.png');--blur:0"></i></div>
+      <div class="f" style="--x:82vw;--s:32px;--o:.85;--dur:21s;--d:14s;--sw:5.5s"><i style="--img:url('/assets/leaf5.png');--blur:0"></i></div>
+      <div class="f" style="--x:11vw;--s:48px;--o:.9;--dur:26s;--d:9s;--sw:6.5s"><i style="--img:url('/assets/leaf1.png');--blur:0"></i></div>
+      <div class="f" style="--x:90vw;--s:46px;--o:.9;--dur:27s;--d:6s;--sw:7s"><i style="--img:url('/assets/leaf2.png');--blur:0"></i></div>
+    </div>
+  </div>
+
+  <div class="falling-fg" aria-hidden="true">
+      <div class="f" style="--x:5vw;--s:104px;--o:.4;--dur:26s;--d:0s;--sw:9s"><i style="--img:url('/assets/leaf1.png');--blur:1.5px"></i></div>
+      <div class="f" style="--x:27vw;--s:84px;--o:.34;--dur:30s;--d:6s;--sw:10s"><i style="--img:url('/assets/leaf4.png');--blur:2px"></i></div>
+      <div class="f" style="--x:50vw;--s:96px;--o:.28;--dur:34s;--d:12s;--sw:11s"><i style="--img:url('/assets/leaf2.png');--blur:2.5px"></i></div>
+      <div class="f" style="--x:73vw;--s:88px;--o:.34;--dur:28s;--d:3s;--sw:10s"><i style="--img:url('/assets/leaf6.png');--blur:2px"></i></div>
+      <div class="f" style="--x:90vw;--s:100px;--o:.4;--dur:32s;--d:9s;--sw:9s"><i style="--img:url('/assets/leaf8.png');--blur:1.5px"></i></div>
+      <div class="f" style="--x:38vw;--s:76px;--o:.26;--dur:36s;--d:17s;--sw:12s"><i style="--img:url('/assets/leaf5.png');--blur:3px"></i></div>
+  </div>
+
+  <div class="page">
+    <div class="emblem">&#10003;</div>
+    <h1 class="title">Спасибо!</h1>
+    <div id="guest-name" class="guest-name"></div>
+    <div id="message"></div>
+    <div id="summary"></div>
+    <div id="back-link"></div>
+    <img class="banner" src="/assets/photo-confirm.jpg" alt="Александр и Екатерина">
+    <p class="footnote">Александр &amp; Екатерина</p>
+  </div>
+  <script>
+  (function () {
+    var scene = document.querySelector('.side-leaves');
+    if (!scene) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var left = scene.querySelector('.side-leaf.left');
+    var right = scene.querySelector('.side-leaf.right');
+    var ticking = false;
+    var vh = window.innerHeight || document.documentElement.clientHeight || 800;
+    var span = 1;
+    function measure() {
+      vh = window.innerHeight || document.documentElement.clientHeight || 800;
+      span = Math.max(1, document.documentElement.scrollHeight - vh);
+    }
+    function update() {
+      ticking = false;
+      var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+      var slack = vh * 0.6;
+      var py = -Math.min(slack, (y / span) * slack);
+      var t = 'translate3d(0,' + py.toFixed(1) + 'px,0)';
+      if (left) left.style.transform = t;
+      if (right) right.style.transform = 'scaleX(-1) ' + t;
+    }
+    function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(update); } }
+    function onResize() { measure(); onScroll(); }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize, { passive: true });
+    window.addEventListener('load', onResize, { passive: true });
+    measure();
+    update();
+  })();
+  </script>
+</body>
+</html>

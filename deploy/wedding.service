@@ -1,0 +1,22 @@
+[Unit]
+Description=Wedding invitation demo
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+RestartSec=5
+ExecStartPre=-/usr/bin/docker stop wedding
+ExecStartPre=-/usr/bin/docker rm wedding
+ExecStart=/usr/bin/docker run --rm --name wedding \
+  -p 127.0.0.1:8080:8080 \
+  -v /data:/data \
+  -e DB_PATH=/data/wedding.db \
+  -e ADMIN_USERNAME=admin \
+  -e ADMIN_PASSWORD=change-me \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  wedding:latest
+ExecStop=/usr/bin/docker stop wedding
+
+[Install]
+WantedBy=multi-user.target

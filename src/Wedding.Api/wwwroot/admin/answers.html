@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ответы — Панель управления</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <h1 style="margin-bottom:8px;">Ответы гостей</h1>
+    <button class="btn" onclick="downloadBlob('/api/admin/export.xlsx', 'otvety.xlsx')">Скачать Excel</button>
+  </div>
+
+  <div class="panel" id="tools">
+    <h2>Сервис для тестирования</h2>
+    <p class="hint" style="margin-top:0;">Эти действия не удаляют гостей, события и вопросы — только ответы. Удобно, чтобы прогонять приглашение несколько раз.</p>
+    <div id="stats" class="muted" style="margin:10px 0 14px;"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn secondary" onclick="fillDemo()">Заполнить демо-ответами</button>
+      <button class="btn secondary" onclick="clearSubmissions()">Очистить историю отправок</button>
+      <button class="btn secondary" onclick="resetAttendance()">Сбросить «придёт / не придёт»</button>
+      <button class="btn danger" onclick="clearAll()">Очистить все ответы</button>
+      <button class="btn danger" onclick="resetAll()">Полный сброс (ответы + +1 + посещение)</button>
+    </div>
+  </div>
+
+  <div id="content"></div>
+</main>
+<script src="app.js"></script>
+<script>
+(async function () {
+  if (!await requireAuth()) return;
+  renderNav('Ответы');
+  await load();
+})();
+
+async function load() {
+  const [data, stats] = await Promise.all([
+    api.get('/api/admin/answers'),
+    api.get('/api/admin/tools/stats'),
+  ]);
+  renderStats(stats);
+  render(data);
+}
+
+function renderStats(s) {
+  document.getElementById('stats').textContent =
+    `Гостей: ${s.guests} · Вопросов: ${s.activeQuestions}/${s.questions} · Ответов: ${s.answers} · Историй отправки: ${s.submissions} · Спутников: ${s.companions} · Придут: ${s.attendanceYes} · Не придут: ${s.attendanceNo}`;
+}
+
+async function refresh() {
+  try {
+    const stats = await api.get('/api/admin/tools/stats');
+    renderStats(stats);
+  } catch (e) {}
+}
+
+function attBadge(a) {
+  if (a === 'Yes') return '<span class="badge yes">Придёт</span>';
+  if (a === 'No') return '<span class="badge no">Не придёт</span>';
+  return '<span class="badge none">Не ответил</span>';
+}
+
+function render(data) {
+  let html = '';
+
+  for (const ev of data.events) {
+    const headers = ['Гость', 'Придёт', '+1']
+      .concat(ev.questions.map(q => q.text))
+      .concat(ev.companionQuestions.map(q => q.text + ' (+1)'));
+    const guestCols = ev.questions.length;
+    const compCols = ev.companionQuestions.length;
+
+    let rows = '';
+    for (const g of ev.guests) {
+      let cells = `<td><b>${esc(g.guestName)}</b></td>`;
+      cells += `<td>${attBadge(g.attendance)}</td>`;
+      cells += `<td>${esc(g.companionName || '—')}</td>`;
+      for (let i = 0; i < guestCols; i++) cells += `<td>${esc(g.answers[ev.questions[i].id] ?? '')}</td>`;
+      if (g.companionAnswers) {
+        for (let i = 0; i < compCols; i++) cells += `<td style="color:var(--muted);">${esc(g.companionAnswers[ev.companionQuestions[i].id] ?? '')}</td>`;
+      } else {
+        for (let i = 0; i < compCols; i++) cells += '<td></td>';
+      }
+      cells += `<td style="white-space:nowrap;"><button class="btn secondary small" onclick="clearGuest(${g.guestId}, '${esc(g.guestName).replace(/'/g, "\\'")}')">Сбросить ответы</button></td>`;
+      rows += `<tr>${cells}</tr>`;
+    }
+
+    html += `<div class="panel">
+      <h2>${esc(ev.name)} <span class="muted">(${fmtDate(ev.date)})</span></h2>
+      <div style="overflow-x:auto;"><table><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}<th></th></tr></thead><tbody>${rows || '<tr><td class="muted">Нет приглашённых</td></tr>'}</tbody></table></div>
+    </div>`;
+  }
+
+  if (data.generalQuestions.length) {
+    const headers = ['Гость'].concat(data.generalQuestions.map(q => q.text));
+    html += `<div class="panel"><h2>Общие вопросы</h2><div style="overflow-x:auto;"><table><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`;
+    const seen = new Set();
+    for (const ev of data.events) {
+      for (const g of ev.guests) {
+        if (seen.has(g.guestId)) continue;
+        seen.add(g.guestId);
+        let cells = `<td><b>${esc(g.guestName)}</b></td>`;
+        for (const q of data.generalQuestions) cells += `<td>${esc(g.answers[q.id] ?? '')}</td>`;
+        html += `<tr>${cells}</tr>`;
+      }
+    }
+    html += '</tbody></table></div></div>';
+  }
+
+  if (data.submissions.length) {
+    html += `<div class="panel"><h2>История отправок <span class="muted">(все клики «Отправить»)</span></h2>
+      <div style="overflow-x:auto;"><table><thead><tr><th>Время</th><th>Гость</th><th>Спутник</th><th></th></tr></thead><tbody>`;
+    for (const s of data.submissions) {
+      html += `<tr>
+        <td>${fmtDate(s.submittedAt)}</td>
+        <td><b>${esc(s.guestName)}</b></td>
+        <td>${esc(s.companionName || '—')}</td>
+        <td><button class="btn secondary small" onclick="toggleSnap(this, ${s.id})">Показать</button></td>
+      </tr><tr id="snap-${s.id}" style="display:none;"><td colspan="4"><pre class="code" style="min-height:60px;">${esc(JSON.stringify(s.answers, null, 2))}</pre></td></tr>`;
+    }
+    html += '</tbody></table></div></div>';
+  }
+
+  document.getElementById('content').innerHTML = html;
+}
+
+function toggleSnap(btn, id) {
+  const row = document.getElementById('snap-' + id);
+  const hidden = row.style.display === 'none';
+  row.style.display = hidden ? '' : 'none';
+  btn.textContent = hidden ? 'Скрыть' : 'Показать';
+}
+
+async function clearGuest(id, name) {
+  if (!confirm(`Сбросить ответы гостя «${name}»? Спутник и отметки посещения тоже сбросятся.`)) return;
+  await api.post(`/api/admin/tools/guests/${id}/clear`, {});
+  await load();
+}
+
+async function fillDemo() {
+  if (!confirm('Заполнить ответы случайными демо-значениями? Текущие ответы и история будут удалены.')) return;
+  const res = await api.post('/api/admin/tools/fill-demo-answers', {});
+  alert(`Готово. Ответов: ${res.answers}, историй: ${res.submissions}.`);
+  await load();
+}
+
+async function clearSubmissions() {
+  if (!confirm('Удалить всю историю отправок? Текущие ответы гостей останутся.')) return;
+  const res = await api.post('/api/admin/tools/clear-submissions', {});
+  alert(`Удалено записей: ${res.removedSubmissions}.`);
+  await load();
+}
+
+async function resetAttendance() {
+  if (!confirm('Сбросить у всех гостей отметки «придёт / не придёт»?')) return;
+  const res = await api.post('/api/admin/tools/reset-attendance', {});
+  alert(`Сброшено у ${res.reset} гостей.`);
+  await load();
+}
+
+async function clearAll() {
+  if (!confirm('Очистить ВСЕ ответы и историю отправок? Гости, события и вопросы останутся. Действие необратимо.')) return;
+  const res = await api.post('/api/admin/tools/clear-answers', {});
+  alert(`Удалено ответов: ${res.removedAnswers}, историй: ${res.removedSubmissions}.`);
+  await load();
+}
+
+async function resetAll() {
+  if (!confirm('Полный сброс: ответы, история, спутники и отметки посещения у ВСЕХ гостей. Продолжить?')) return;
+  const res = await api.post('/api/admin/tools/reset-all', {});
+  alert(`Удалено ответов: ${res.removedAnswers}, историй: ${res.removedSubmissions}, спутников: ${res.removedCompanions}. Посещение сброшено у ${res.resetAttendance}.`);
+  await load();
+}
+</script>
+</body>
+</html>

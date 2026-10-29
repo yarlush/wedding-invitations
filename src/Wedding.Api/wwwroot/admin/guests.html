@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Гости — Панель управления</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+<main>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <h1 style="margin-bottom:8px;">Гости</h1>
+    <button class="btn" id="add-btn">Добавить гостя</button>
+  </div>
+  <div class="panel" style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Имя</th><th>События</th><th>Спутник</th><th>Последний ответ</th><th>Ссылка</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Добавить гостя</h3>
+    <div class="row">
+      <label>Имя</label>
+      <input type="text" id="f-name">
+    </div>
+    <div class="row">
+      <label>События (с галочкой «+1» — можно прийти с парой)</label>
+      <div id="f-events"></div>
+    </div>
+    <div id="err" class="err"></div>
+    <div class="actions">
+      <button class="btn secondary" onclick="closeModal('modal')">Отмена</button>
+      <button class="btn" id="save-btn">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let guests = [];
+let events = [];
+let editingId = null;
+
+(async function () {
+  if (!await requireAuth()) return;
+  renderNav('Гости');
+  [guests, events] = await Promise.all([api.get('/api/admin/guests'), api.get('/api/admin/events')]);
+  render();
+})();
+
+function render() {
+  document.getElementById('rows').innerHTML = guests.map(g => {
+    const chips = g.events.length ? g.events.map(e =>
+      `<span class="chip${e.companionsAllowed > 0 ? '' : ' grey'}">${esc(e.name)}${e.companionsAllowed > 0 ? ' +1' : ''}</span>`).join(' ')
+      : '<span class="muted">не назначен</span>';
+    const link = location.origin + g.link;
+    return `<tr>
+      <td><b>${esc(g.name)}</b></td>
+      <td>${chips}</td>
+      <td>${esc(g.companionName || '—')}</td>
+      <td>${fmtDate(g.lastSubmissionAt)}</td>
+      <td class="link-cell" title="${esc(link)}">${esc(g.link)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn secondary small" onclick="openEdit(${g.id})">Изменить</button>
+        <button class="btn secondary small" onclick="copyLink(${g.id})">Ссылка</button>
+        <button class="btn secondary small" onclick="regenerate(${g.id})">Новый токен</button>
+        <button class="btn danger small" onclick="remove(${g.id})">Удалить</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function copyLink(id) {
+  const g = guests.find(x => x.id === id);
+  await navigator.clipboard.writeText(location.origin + g.link);
+  alert('Ссылка скопирована');
+}
+
+async function regenerate(id) {
+  if (!confirm('Выдать новую ссылку? Старая перестанет работать.')) return;
+  const res = await api.post(`/api/admin/guests/${id}/regenerate-token`, {});
+  const g = guests.find(x => x.id === id);
+  g.token = res.token;
+  g.link = res.link;
+  render();
+}
+
+async function remove(id) {
+  const g = guests.find(x => x.id === id);
+  if (!confirm(`Удалить гостя «${g.name}»? Ответы и история будут удалены.`)) return;
+  await api.del(`/api/admin/guests/${id}`);
+  guests = guests.filter(x => x.id !== id);
+  render();
+}
+
+function openEdit(id) {
+  const g = guests.find(x => x.id === id);
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Изменить гостя';
+  document.getElementById('f-name').value = g.name;
+  renderEvents(g);
+  openModal('modal');
+}
+
+document.getElementById('add-btn').addEventListener('click', () => {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Добавить гостя';
+  document.getElementById('f-name').value = '';
+  renderEvents(null);
+  openModal('modal');
+});
+
+function renderEvents(g) {
+  const sel = new Map((g?.events || []).map(e => [e.eventId, e]));
+  document.getElementById('f-events').innerHTML = events.map(ev => {
+    const cur = sel.get(ev.id);
+    return `<div class="check-line">
+      <label style="flex:1;margin:0;color:var(--ink);">
+        <input type="checkbox" data-event-id="${ev.id}" ${cur ? 'checked' : ''}> ${esc(ev.name)}
+      </label>
+      <label style="margin:0;font-size:12px;color:var(--muted);">
+        <input type="checkbox" data-plus-id="${ev.id}" ${cur && cur.companionsAllowed > 0 ? 'checked' : ''}> +1
+      </label>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+  const err = document.getElementById('err');
+  err.textContent = '';
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { err.textContent = 'Укажите имя'; return; }
+
+  const selected = [...document.querySelectorAll('[data-event-id]:checked')].map(cb => {
+    const eventId = Number(cb.dataset.eventId);
+    const plus = document.querySelector(`[data-plus-id="${eventId}"]`);
+    return { eventId, companionsAllowed: plus && plus.checked ? 1 : 0 };
+  });
+
+  try {
+    if (editingId == null) {
+      const created = await api.post('/api/admin/guests', { name });
+      await api.put(`/api/admin/guests/${created.id}/events`, { events: selected });
+      guests.push({ ...created, events: selected.map(s => ({ eventId: s.eventId, companionsAllowed: s.companionsAllowed })),
+        companionName: null, lastSubmissionAt: null, createdAt: null });
+    } else {
+      await api.put(`/api/admin/guests/${editingId}`, { name });
+      await api.put(`/api/admin/guests/${editingId}/events`, { events: selected });
+      const g = guests.find(x => x.id === editingId);
+      g.name = name;
+      g.events = selected.map(s => {
+        const ev = events.find(e => e.id === s.eventId);
+        return { eventId: s.eventId, name: ev ? ev.name : '', companionsAllowed: s.companionsAllowed };
+      });
+    }
+    closeModal('modal');
+    render();
+  } catch (e) {
+    err.textContent = e.message;
+  }
+});
+</script>
+</body>
+</html>

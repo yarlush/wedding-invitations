@@ -3,7 +3,7 @@
 Использование:
     py samples/seed_demo.py [--base путь] [--db путь]
 
-По умолчанию базовая схема берётся из src/Wedding.Api/wedding.db,
+По умолчанию базовая схема берётся из src/Wedding.Api/seed/wedding.db,
 результат пишется в src/Wedding.Api/demo.db.
 """
 from __future__ import annotations
